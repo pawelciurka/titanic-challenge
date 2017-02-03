@@ -6,30 +6,33 @@ import numpy as np
 
 descriptors = []
 
-class EvaluationClassifier(pipeline.Pipeline):
-    def __init__(self):
+NAIVE_BAYES_PREDICTORS = ['Sex', 'Embarked', 'nCabins', 'Pclass']
 
-        super(EvaluationClassifier, self).__init__(
-            [
-                ('rf1', ensemble.RandomForestClassifier(n_estimators=100, min_samples_split=4, min_samples_leaf=4)),
+class Predictor(object):
 
-            ])
+    def __init__(self, id):
+        self.id = id
+
+    def fit(self, X, y):
+        raise NotImplementedError
+
+    def predict(self, X):
+        raise NotImplementedError
 
 
-
-
-class TitanicClassifier():
-    def __init__(self):
+class NaiveBayes(Predictor):
+    def __init__(self, id='naive_bayes'):
+        super(NaiveBayes, self).__init__(id)
         self.discrete_features = ['Sex', 'Embarked', 'nCabins', 'Pclass']
         self.continous_features = ['Age']
 
-    def fit(self, training_data, y):
-        n_examples = len(training_data)
+    def fit(self, X, y):
+        n_examples = len(X)
         self.class_priors = {
             0: float(y.value_counts()[0])/n_examples,
             1: float(y.value_counts()[1])/n_examples
         }
-        self._fit_feature_prob_models(training_data, y)
+        self._fit_feature_prob_models(X, y)
 
     def _fit_feature_prob_models(self, training_data, y):
         self.feature_prob_models = {}
@@ -39,9 +42,9 @@ class TitanicClassifier():
             elif feature_name in self.continous_features:
                 pass
 
-    def score(self, test_data):
+    def score(self, X):
         scores = []
-        for i, passenger_data in test_data.iterrows():
+        for i, passenger_data in X.iterrows():
             p0 = []
             p1 = []
             ratios = []
@@ -49,7 +52,7 @@ class TitanicClassifier():
                 p0.append(self.class_priors[0]*fpm.p[passenger_data[feature_name]][0])
                 p1.append(self.class_priors[1]*fpm.p[passenger_data[feature_name]][1])
                 ratios.append(p1[-1]-p0[-1])
-            survive_score = sum(ratios*np.array([1, 0.5, 0.1]))
+            survive_score = sum(ratios*np.array([1, 0.5, 0.1, 0.1]))
             scores.append(survive_score)
         return scores
 

@@ -1,15 +1,15 @@
 import features
-import my_classifier
+import predictors
 import submissions
 
-test_titanic_features = features.TitanicFeatures('test')
-train_titanic_features = features.TitanicFeatures('train')
+descriptors = predictors.NAIVE_BAYES_PREDICTORS
 
-descriptors = ['Age', 'Sex', 'Embarked', 'nCabins', 'Pclass', 'Sector', 'SibSp']
+test_titanic_features = features.TitanicFeatures('test', descriptors)
+train_titanic_features = features.TitanicFeatures('train', descriptors)
 
-classifier = my_classifier.EvaluationClassifier()
-classifier.fit(train_titanic_features.get_descriptors(descriptors), train_titanic_features.get_labels())
+predictor = predictors.NaiveBayes()
 
-predictions = classifier.predict(test_titanic_features.get_descriptors(descriptors))
+predictor.fit(train_titanic_features.get_X(), train_titanic_features.get_y())
+predictions = predictor.predict(test_titanic_features.get_X())
 
-submissions.form_submission_file(test_titanic_features.data['PassengerId'], predictions, 'test_sub.csv')
+submissions.form_submission_file(test_titanic_features.data['PassengerId'], predictions)

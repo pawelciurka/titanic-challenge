@@ -6,12 +6,13 @@ _DATA['test'] = pd.read_csv(r'./data/test.csv')
 
 
 class TitanicFeatures(object):
-    def __init__(self, train_or_test):
+    def __init__(self, train_or_test, descriptors):
         self.train_or_test = train_or_test
         self.data = _DATA[self.train_or_test]
         self._clean()
         self._form_new_features()
         self._numberize()
+        self.descriptors = descriptors
 
     def _clean(self):
         self.data['Age'] = self.data['Age'].fillna(_DATA['train']['Age'].median())
@@ -47,9 +48,17 @@ class TitanicFeatures(object):
         # first letter of 'Cabin' feature
         self.data['Sector'] = self.data['Cabin'].map(lambda x: x[0])
 
+    def get_X(self, idxs=None):
+        if idxs is None:
+            return self.data[self.descriptors]
+        else:
+            return self.data.loc[idxs, self.descriptors]
 
-    def get_descriptors(self, descriptors):
-        return self.data[descriptors]
+    def get_y(self, idxs=None):
+        if idxs is None:
+            return self.data['Survived']
+        else:
+            return self.data.loc[idxs, 'Survived']
 
-    def get_labels(self):
-        return self.data['Survived']
+    def get_X_y(self, idxs=None):
+        return self.get_X(idxs), self.get_y(idxs)
