@@ -64,5 +64,5 @@ class Crossvalidation(object):
 
 
 if __name__ == '__main__':
-    crossvalidation = Crossvalidation([predictors.NaiveBayes()], predictors.NAIVE_BAYES_PREDICTORS)
+    crossvalidation = Crossvalidation([predictors.SimpleNN()], predictors.NAIVE_BAYES_PREDICTORS)
     crossvalidation.perform_test()

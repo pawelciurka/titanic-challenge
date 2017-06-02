@@ -3,6 +3,8 @@ from sklearn import svm
 import pandas as pd
 from collections import defaultdict
 import numpy as np
+from keras.models import Sequential
+from keras.layers import Dense
 
 descriptors = []
 
@@ -18,6 +20,30 @@ class Predictor(object):
 
     def predict(self, X):
         raise NotImplementedError
+
+
+class SimpleNN(Predictor):
+    def __init__(self):
+        super(SimpleNN, self).__init__('simple_nn')
+        self.model = self.prepare_graph()
+
+    def prepare_graph(self):
+        model = Sequential()
+        model.add(Dense(12, input_dim=4, activation='relu'))
+        model.add(Dense(10, activation='relu'))
+        model.add(Dense(5, activation='relu'))
+        model.add(Dense(1, activation='sigmoid'))
+
+        # compile
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+        return model
+
+    def fit(self, X, y):
+        self.model.fit(np.asarray(X), y, epochs=150, batch_size=10)
+
+    def predict(self, X):
+        return np.round(self.model.predict(np.asarray(X))).reshape(-1)
 
 
 class NaiveBayes(Predictor):
