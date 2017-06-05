@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 _DATA = dict()
@@ -11,6 +12,7 @@ class TitanicFeatures(object):
         self.data = _DATA[self.train_or_test]
         self._clean()
         self._form_new_features()
+        self._attach_to_bins()
         self._numberize()
         self.descriptors = descriptors
 
@@ -39,6 +41,9 @@ class TitanicFeatures(object):
         self.data.loc[self.data['Sector'] == 'X', 'Sector'] = 0
         self.data.loc[self.data['Sector'] == 'T', 'Sector'] = 8
 
+        for i, title in enumerate(self.data['Title'].unique()):
+            self.data.loc[self.data['Title'] == title, 'Title'] = i
+
     def _form_new_features(self):
 
         # number of cabins reserved
@@ -47,6 +52,28 @@ class TitanicFeatures(object):
 
         # first letter of 'Cabin' feature
         self.data['Sector'] = self.data['Cabin'].map(lambda x: x[0])
+
+        # title
+        self.data['Title'] = self.data['Name'].map(lambda x: x.split(', ')[1].split('.')[0])
+
+        # surname
+        self.data['Surname'] = self.data['Name'].map(lambda x: x.split(',')[0])
+
+    def _attach_to_bins(self):
+        """
+        Split Age and Fare into groups, attach group id.
+        """
+        age_bin_ranges = np.linspace(self.data['Age'].min(), self.data['Age'].max(), num=20)
+        age_bin_ranges = [self.data['Age'].min(), 5, 15, 60, self.data['Age'].max() + 1]
+        age_bin_ranges[-1] += 1
+        for i in range(len(age_bin_ranges) - 1):
+            self.data.loc[
+                (self.data['Age'] >= age_bin_ranges[i]) & (self.data['Age'] < age_bin_ranges[i + 1]), 'AgeGroup'] = i
+
+        fare_ranges = [self.data['Fare'].min(), 200, 500, self.data['Fare'].max() + 1]
+        for i in range(len(fare_ranges) - 1):
+            self.data.loc[
+                (self.data['Fare'] >= fare_ranges[i]) & (self.data['Fare'] < fare_ranges[i + 1]), 'FareGroup'] = i
 
     def get_X(self, idxs=None):
         if idxs is None:

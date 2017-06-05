@@ -1,8 +1,11 @@
+from collections import defaultdict
+from copy import deepcopy
+
+from sklearn import cross_validation
+
 import features
 import predictors
-from sklearn import cross_validation
-from copy import deepcopy
-import pandas as pd
+
 
 class CrossvalidationConfig(dict):
     def __init__(self, n_folds=5):
@@ -11,7 +14,7 @@ class CrossvalidationConfig(dict):
 
 
 class Crossvalidation(object):
-    def __init__(self, predictors, descriptors, crossvalidation_config=None):
+    def __init__(self, predictors, titanic_features, crossvalidation_config=None):
         """
         :type predictor: list[predictors.Predictor]
         :type crossvalidation_config: CrossvalidationConfig
@@ -19,7 +22,7 @@ class Crossvalidation(object):
         if crossvalidation_config is None:
             crossvalidation_config = CrossvalidationConfig()
 
-        self.titanic_features = features.TitanicFeatures('train', descriptors)
+        self.titanic_features = titanic_features
         self.predictors = predictors
         self.config = crossvalidation_config
 
@@ -42,9 +45,7 @@ class Crossvalidation(object):
 
             self.attach_predictions(predictions, test_idx)
 
-        pass
-
-
+        print(self.calculate_accuracy())
 
     @staticmethod
     def fit_predictors(X, y, _predictors):
@@ -62,7 +63,20 @@ class Crossvalidation(object):
         for id, _predictions in predictions.items():
             self.titanic_features.data.ix[idx, id] = _predictions
 
+    def calculate_accuracy(self):
+
+        results = defaultdict(dict)
+        for predictor in self.predictors:
+            predictor_id = predictor.id
+            matches = self.titanic_features.data['Survived'] == self.titanic_features.data[predictor_id]
+            accuracy = float(sum(matches)) / len(matches)
+            results[predictor_id]['accuracy'] = accuracy
+            results[predictor_id]['error_ratio'] = 1 - accuracy
+        return results
 
 if __name__ == '__main__':
-    crossvalidation = Crossvalidation([predictors.NaiveBayes()], predictors.NAIVE_BAYES_PREDICTORS)
+    crossvalidation = Crossvalidation(
+        [predictors.NaiveBayes()],
+        features.TitanicFeatures('train', ['Gender']),
+        predictors.NAIVE_BAYES_PREDICTORS)
     crossvalidation.perform_test()
