@@ -5,7 +5,9 @@ from sklearn import cross_validation
 
 import features
 import predictors
-
+from sklearn import cross_validation
+from copy import deepcopy
+import pandas as pd
 
 class CrossvalidationConfig(dict):
     def __init__(self, n_folds=5):
@@ -22,7 +24,7 @@ class Crossvalidation(object):
         if crossvalidation_config is None:
             crossvalidation_config = CrossvalidationConfig()
 
-        self.titanic_features = titanic_features
+        self.titanic_features = features.TitanicFeatures('train', descriptors)
         self.predictors = predictors
         self.config = crossvalidation_config
 
@@ -75,8 +77,5 @@ class Crossvalidation(object):
         return results
 
 if __name__ == '__main__':
-    crossvalidation = Crossvalidation(
-        [predictors.NaiveBayes()],
-        features.TitanicFeatures('train', ['Gender']),
-        predictors.NAIVE_BAYES_PREDICTORS)
+    crossvalidation = Crossvalidation([predictors.SimpleNN()], predictors.NAIVE_BAYES_PREDICTORS)
     crossvalidation.perform_test()

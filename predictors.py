@@ -1,12 +1,14 @@
-from collections import defaultdict
-
-import numpy as np
+from sklearn import cross_validation, ensemble, pipeline
+from sklearn import svm
 import pandas as pd
-import tensorflow as tf
-from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from collections import defaultdict
+import numpy as np
+from keras.models import Sequential
+from keras.layers import Dense
 
-NAIVE_BAYES_PREDICTORS = ['Pclass', 'AgeGroup', 'Title', 'FareGroup']
+descriptors = []
 
+NAIVE_BAYES_PREDICTORS = ['Sex', 'Embarked', 'nCabins', 'Pclass']
 
 class Predictor(object):
 
@@ -20,9 +22,35 @@ class Predictor(object):
         raise NotImplementedError
 
 
+class SimpleNN(Predictor):
+    def __init__(self):
+        super(SimpleNN, self).__init__('simple_nn')
+        self.model = self.prepare_graph()
+
+    def prepare_graph(self):
+        model = Sequential()
+        model.add(Dense(12, input_dim=4, activation='relu'))
+        model.add(Dense(10, activation='relu'))
+        model.add(Dense(5, activation='relu'))
+        model.add(Dense(1, activation='sigmoid'))
+
+        # compile
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+        return model
+
+    def fit(self, X, y):
+        self.model.fit(np.asarray(X), y, epochs=150, batch_size=10)
+
+    def predict(self, X):
+        return np.round(self.model.predict(np.asarray(X))).reshape(-1)
+
+
 class NaiveBayes(Predictor):
     def __init__(self, id='naive_bayes'):
         super(NaiveBayes, self).__init__(id)
+        self.discrete_features = ['Sex', 'Embarked', 'nCabins', 'Pclass']
+        self.continous_features = ['Age']
 
     def fit(self, X, y):
         n_examples = len(X)
@@ -31,57 +59,31 @@ class NaiveBayes(Predictor):
             1: float(y.value_counts()[1])/n_examples
         }
         self._fit_feature_prob_models(X, y)
-        self._train_weights(X, y)
-        print(self.weights)
 
     def _fit_feature_prob_models(self, training_data, y):
-        self.feature_prob_models = dict()
+        self.feature_prob_models = {}
         for feature_name in training_data:
-            self.feature_prob_models[feature_name] = _DiscreteFeatureProbModel(training_data[feature_name], y)
+            if feature_name in self.discrete_features:
+                self.feature_prob_models[feature_name] = _DiscreteFeatureProbModel(training_data[feature_name], y)
+            elif feature_name in self.continous_features:
+                pass
 
-    def _train_weights(self, X, y):
-        self.single_scores = self.single_feature_scores(X)
-        self.y = y
-
-        feature_names = self.single_scores.columns._data
-
-        space = [hp.uniform(feature_name, 0, 1) for feature_name in feature_names]
-
-        trials = Trials()
-        self.weights = fmin(
-            self.loss_fun,
-            space=space,
-            algo=tpe.suggest,
-            max_evals=1200,
-            trials=trials
-        )
-        import matplotlib.pyplot as plt
-        plt.plot(trials.losses())
-
-        pass
-
-    def loss_fun(self, a):
-        scores = [sum(np.asarray(ss) * np.asarray(a)) for i, ss in self.single_scores.iterrows()]
-        decisions = np.asarray(scores) > 0
-        matches = self.y == decisions
-        error_rate = 1 - float(sum(matches)) / len(matches)
-        return error_rate
-
-    def single_feature_scores(self, X):
-
-        single_feature_scores = pd.DataFrame()
+    def score(self, X):
+        scores = []
         for i, passenger_data in X.iterrows():
+            p0 = []
+            p1 = []
+            ratios = []
             for feature_name, fpm in self.feature_prob_models.items():
-                p0 = self.class_priors[0] * fpm.p[passenger_data[feature_name]][0]
-                p1 = self.class_priors[1] * fpm.p[passenger_data[feature_name]][1]
-                single_feature_scores.loc[i, feature_name] = p1 - p0
-        return single_feature_scores
+                p0.append(self.class_priors[0]*fpm.p[passenger_data[feature_name]][0])
+                p1.append(self.class_priors[1]*fpm.p[passenger_data[feature_name]][1])
+                ratios.append(p1[-1]-p0[-1])
+            survive_score = sum(ratios*np.array([1, 0.5, 0.1, 0.1]))
+            scores.append(survive_score)
+        return scores
 
     def predict(self, test_data):
-        single_scores = self.single_feature_scores(test_data)
-        keys = self.weights.keys()
-        weights = np.asarray([self.weights[key] for key in keys])
-        scores = [sum(np.asarray(ss[keys]) * weights) for i, ss in single_scores.iterrows()]
+        scores = self.score(test_data)
         predictions = np.asarray(scores) > 0
         return predictions.astype(np.int32)
 
@@ -90,9 +92,11 @@ class _DiscreteFeatureProbModel():
     def __init__(self, data_series, y):
         unique_classes = y.unique()
         unique_feature_values = data_series.unique()
-        self.p = defaultdict(lambda: {0: 0.0, 1: 0.0})
+        self.p = defaultdict(dict)
         for unique_class in unique_classes:
             class_series = data_series[y == unique_class]
             class_count = len(class_series)
             for feature_value in unique_feature_values:
                 self.p[feature_value][unique_class] = float(sum(class_series==feature_value))/class_count
+
+
